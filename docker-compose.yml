@@ -1,0 +1,43 @@
+services:
+  mysql:
+    image: mysql:8
+    container_name: lab-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: lab_reservation
+      TZ: Asia/Shanghai
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot"]
+      interval: 5s
+      retries: 20
+    networks: [lab-net]
+
+  backend:
+    build: ./backend
+    container_name: lab-backend
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: root
+      JWT_SECRET: lab-reservation-secret-key-please-change-in-production-0123456789
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks: [lab-net]
+
+  frontend:
+    build: ./frontend
+    container_name: lab-frontend
+    ports:
+      - "80:80"          # 云服务器安全组放行 80 端口即可公网访问
+    depends_on: [backend]
+    networks: [lab-net]
+
+volumes:
+  mysql-data:
+
+networks:
+  lab-net:

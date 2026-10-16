@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xmlns:flowable="http://flowable.org/bpmn"
+             targetNamespace="http://lab.reservation">
+
+  <process id="deviceReservation" name="实验室设备预约审批" isExecutable="true">
+
+    <startEvent id="start" name="学生提交预约"/>
+    <sequenceFlow id="flow1" sourceRef="start" targetRef="approvalTask"/>
+
+    <!-- 教师/管理员组共享任务:任一审批人处理即可 -->
+    <userTask id="approvalTask" name="教师审批" flowable:candidateGroups="teachers"/>
+    <sequenceFlow id="flow2" sourceRef="approvalTask" targetRef="decision"/>
+
+    <exclusiveGateway id="decision" name="审批结果"/>
+    <sequenceFlow id="approveFlow" sourceRef="decision" targetRef="approvedService">
+      <conditionExpression xsi:type="tFormalExpression">${approved}</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="rejectFlow" sourceRef="decision" targetRef="rejectedService">
+      <conditionExpression xsi:type="tFormalExpression">${!approved}</conditionExpression>
+    </sequenceFlow>
+
+    <!-- 审批通过:更新预约状态并通知学生 -->
+    <serviceTask id="approvedService" name="通过处理"
+                 flowable:expression="${reservationProcessService.onApproved(execution)}"/>
+    <!-- 审批驳回:更新预约状态并通知学生 -->
+    <serviceTask id="rejectedService" name="驳回处理"
+                 flowable:expression="${reservationProcessService.onRejected(execution)}"/>
+
+    <sequenceFlow id="flow3" sourceRef="approvedService" targetRef="end"/>
+    <sequenceFlow id="flow4" sourceRef="rejectedService" targetRef="end"/>
+    <endEvent id="end" name="流程结束"/>
+
+  </process>
+</definitions>
