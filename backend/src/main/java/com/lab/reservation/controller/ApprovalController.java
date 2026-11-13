@@ -26,6 +26,12 @@ public class ApprovalController {
         return ApiResponse.ok(approvalService.listPendingTasks());
     }
 
+    /** 当前审批人已处理的历史任务 */
+    @GetMapping("/history")
+    public ApiResponse<List<Map<String, Object>>> history(@AuthenticationPrincipal Long userId) {
+        return ApiResponse.ok(approvalService.listHistory(userId));
+    }
+
     /** 审批通过 / 驳回 */
     @PostMapping("/complete")
     public ApiResponse<Void> complete(@AuthenticationPrincipal Long userId,

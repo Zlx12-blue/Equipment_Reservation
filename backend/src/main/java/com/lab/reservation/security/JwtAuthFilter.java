@@ -1,5 +1,6 @@
 package com.lab.reservation.security;
 
+import com.lab.reservation.repository.UserRepository;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -20,6 +21,7 @@ import java.util.List;
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
+    private final UserRepository userRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
@@ -29,11 +31,15 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             try {
                 Claims claims = jwtUtil.parse(header.substring(7));
                 Long userId = Long.valueOf(claims.getSubject());
-                String role = claims.get("role", String.class);
-                // principal 为 userId,Controller 中可直接取用
-                var authentication = new UsernamePasswordAuthenticationToken(
-                        userId, null, List.of(new SimpleGrantedAuthority("ROLE_" + role)));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                // 已删除或已禁用的账号立即失效,不必等待 token 过期
+                userRepository.findById(userId)
+                        .filter(u -> u.isEnabled())
+                        .ifPresent(user -> {
+                            var authentication = new UsernamePasswordAuthenticationToken(
+                                    userId, null,
+                                    List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name())));
+                            SecurityContextHolder.getContext().setAuthentication(authentication);
+                        });
             } catch (Exception ignored) {
                 // 无效 token 按未认证处理
             }

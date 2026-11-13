@@ -8,6 +8,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/notifications")
@@ -21,9 +22,20 @@ public class NotificationController {
         return ApiResponse.ok(notificationService.myNotifications(userId));
     }
 
+    @GetMapping("/unread-count")
+    public ApiResponse<Map<String, Long>> unreadCount(@AuthenticationPrincipal Long userId) {
+        return ApiResponse.ok(Map.of("count", notificationService.unreadCount(userId)));
+    }
+
     @PostMapping("/{id}/read")
-    public ApiResponse<Void> markRead(@PathVariable Long id) {
-        notificationService.markRead(id);
+    public ApiResponse<Void> markRead(@AuthenticationPrincipal Long userId, @PathVariable Long id) {
+        notificationService.markRead(userId, id);
+        return ApiResponse.ok();
+    }
+
+    @PostMapping("/read-all")
+    public ApiResponse<Void> markAllRead(@AuthenticationPrincipal Long userId) {
+        notificationService.markAllRead(userId);
         return ApiResponse.ok();
     }
 }

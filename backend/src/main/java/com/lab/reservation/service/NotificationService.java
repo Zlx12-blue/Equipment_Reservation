@@ -9,6 +9,7 @@ import com.lab.reservation.websocket.NotifyWebSocketHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -47,10 +48,22 @@ public class NotificationService {
         return notificationRepository.findByUserIdOrderByCreatedAtDesc(userId);
     }
 
-    public void markRead(Long id) {
+    public void markRead(Long userId, Long id) {
         notificationRepository.findById(id).ifPresent(n -> {
+            if (!n.getUserId().equals(userId)) {
+                throw new IllegalStateException("只能操作自己的通知");
+            }
             n.setReadFlag(true);
             notificationRepository.save(n);
         });
+    }
+
+    @Transactional
+    public void markAllRead(Long userId) {
+        notificationRepository.markAllRead(userId);
+    }
+
+    public long unreadCount(Long userId) {
+        return notificationRepository.countByUserIdAndReadFlagFalse(userId);
     }
 }

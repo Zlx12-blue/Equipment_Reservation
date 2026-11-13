@@ -28,4 +28,8 @@ public class User {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private Role role;
+
+    /** 账号是否启用,管理员可禁用违规账号 */
+    @Column(nullable = false)
+    private boolean enabled = true;
 }

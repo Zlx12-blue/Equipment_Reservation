@@ -11,4 +11,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByUsername(String username);
 
     List<User> findByRoleIn(List<User.Role> roles);
+
+    List<User> findAllByOrderByIdAsc();
+
+    long countByRole(User.Role role);
+
+    long countByRoleAndEnabledIsTrue(User.Role role);
 }

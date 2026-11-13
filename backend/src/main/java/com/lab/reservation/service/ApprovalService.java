@@ -4,10 +4,15 @@ import com.lab.reservation.entity.Reservation;
 import com.lab.reservation.repository.ReservationRepository;
 import com.lab.reservation.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.flowable.engine.HistoryService;
 import org.flowable.engine.TaskService;
 import org.flowable.task.api.Task;
+import org.flowable.task.api.history.HistoricTaskInstance;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -17,6 +22,7 @@ import java.util.stream.Collectors;
 public class ApprovalService {
 
     private final TaskService taskService;
+    private final HistoryService historyService;
     private final ReservationRepository reservationRepository;
     private final UserRepository userRepository;
 
@@ -28,6 +34,19 @@ public class ApprovalService {
                 .list()
                 .stream()
                 .map(this::toView)
+                .collect(Collectors.toList());
+    }
+
+    /** 当前审批人已处理的历史任务 */
+    public List<Map<String, Object>> listHistory(Long operatorId) {
+        List<HistoricTaskInstance> tasks = historyService.createHistoricTaskInstanceQuery()
+                .taskAssignee(String.valueOf(operatorId))
+                .finished()
+                .orderByHistoricTaskInstanceEndTime().desc()
+                .list();
+        return tasks.stream()
+                .map(this::toHistoryView)
+                .filter(m -> m != null)
                 .collect(Collectors.toList());
     }
 
@@ -50,16 +69,39 @@ public class ApprovalService {
     private Map<String, Object> toView(Task task) {
         Map<String, Object> vars = taskService.getVariables(task.getId());
         Object reservationId = vars.get("reservationId");
-        String purpose = reservationId == null ? null : reservationRepository
-                .findById(Long.valueOf(reservationId.toString()))
-                .map(Reservation::getPurpose).orElse(null);
-        return Map.of(
-                "taskId", task.getId(),
-                "taskName", task.getName(),
-                "createTime", task.getCreateTime().toString(),
-                "reservationId", reservationId == null ? "" : reservationId,
-                "applicantName", vars.getOrDefault("applicantName", ""),
-                "deviceName", vars.getOrDefault("deviceName", ""),
-                "purpose", purpose == null ? "" : purpose);
+        Reservation reservation = reservationId == null ? null : reservationRepository
+                .findById(Long.valueOf(reservationId.toString())).orElse(null);
+        Map<String, Object> view = new LinkedHashMap<>();
+        view.put("taskId", task.getId());
+        view.put("taskName", task.getName());
+        view.put("createTime", task.getCreateTime().toString());
+        view.put("reservationId", reservationId == null ? "" : reservationId);
+        view.put("applicantName", vars.getOrDefault("applicantName", ""));
+        view.put("deviceName", vars.getOrDefault("deviceName", ""));
+        view.put("purpose", reservation == null || reservation.getPurpose() == null ? "" : reservation.getPurpose());
+        view.put("deviceId", reservation == null ? null : reservation.getDevice().getId());
+        view.put("startTime", reservation == null ? null : reservation.getStartTime().toString());
+        view.put("endTime", reservation == null ? null : reservation.getEndTime().toString());
+        return view;
+    }
+
+    private Map<String, Object> toHistoryView(HistoricTaskInstance task) {
+        Reservation r = reservationRepository.findByProcessInstanceId(task.getProcessInstanceId()).orElse(null);
+        if (r == null) {
+            return null;
+        }
+        Map<String, Object> view = new LinkedHashMap<>();
+        view.put("reservationId", r.getId());
+        view.put("applicantName", r.getApplicant().getRealName());
+        view.put("deviceName", r.getDevice().getName());
+        view.put("startTime", r.getStartTime().toString());
+        view.put("endTime", r.getEndTime().toString());
+        view.put("purpose", r.getPurpose());
+        view.put("status", r.getStatus().name());
+        view.put("approvalComment", r.getApprovalComment());
+        view.put("approverName", r.getApproverName());
+        view.put("finishedAt", task.getEndTime() == null ? "" : LocalDateTime.ofInstant(
+                task.getEndTime().toInstant(), ZoneId.systemDefault()).toString());
+        return view;
     }
 }

@@ -25,6 +25,8 @@ request.interceptors.response.use(
 )
 
 export const login = (data) => request.post('/auth/login', data)
+export const register = (data) => request.post('/auth/register', data)
+export const registerAdmin = (data) => request.post('/auth/register-admin', data)
 
 export const listDevices = () => request.get('/devices')
 export const createDevice = (data) => request.post('/devices', data)
@@ -32,15 +34,46 @@ export const updateDevice = (id, data) => request.put(`/devices/${id}`, data)
 export const deleteDevice = (id) => request.delete(`/devices/${id}`)
 
 export const submitReservation = (data) => request.post('/reservations', data)
-export const myReservations = () => request.get('/reservations/my')
+export const myReservations = (params) => request.get('/reservations/my', { params })
+export const updateReservation = (id, data) => request.put(`/reservations/${id}`, data)
 export const cancelReservation = (id) => request.delete(`/reservations/${id}`)
-export const allReservations = () => request.get('/reservations/all')
+export const allReservations = (params) => request.get('/reservations/all', { params })
+export const deviceBusy = (deviceId, date, excludeId) =>
+  request.get(`/reservations/device/${deviceId}/busy`, { params: { date, excludeId } })
 
 export const pendingApprovals = () => request.get('/approvals/pending')
+export const approvalHistory = () => request.get('/approvals/history')
 export const completeApproval = (data) => request.post('/approvals/complete', data)
 
 export const myNotifications = () => request.get('/notifications/my')
 export const markNotificationRead = (id) => request.post(`/notifications/${id}/read`)
+export const markAllNotificationsRead = () => request.post('/notifications/read-all')
+export const unreadNotificationCount = () => request.get('/notifications/unread-count')
+
+export const adminStats = () => request.get('/admin/stats')
+export const listUsers = () => request.get('/admin/users')
+export const setUserEnabled = (id, enabled) => request.put(`/admin/users/${id}/enabled`, { enabled })
+export const resetUserPassword = (id, password) => request.post(`/admin/users/${id}/reset-password`, { password })
+export const deleteUser = (id) => request.delete(`/admin/users/${id}`)
+
+/** 导出预约记录:文件流不经过统一拦截器,直接用 fetch 下载 */
+export async function exportReservations(params = {}) {
+  const auth = useAuthStore()
+  const query = new URLSearchParams(
+    Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '')
+  ).toString()
+  const res = await fetch(`/api/reservations/export${query ? '?' + query : ''}`, {
+    headers: { Authorization: `Bearer ${auth.token}` }
+  })
+  if (!res.ok) throw new Error('导出失败')
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = '预约记录.csv'
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 /**
  * 建立实时通知通道;收到消息时回调(多端实时互动)。
